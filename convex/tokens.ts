@@ -74,7 +74,10 @@ export const touchInternal = internalMutation({
   handler: async (ctx, args) => {
     const token = await ctx.db.get(args.tokenId)
     if (!token || token.revokedAt) return
-    await ctx.db.patch(token._id, { lastUsedAt: Date.now() })
+    const now = Date.now()
+    // Only update if more than 5 minutes since last touch to reduce write volume
+    if (token.lastUsedAt && now - token.lastUsedAt < 5 * 60 * 1000) return
+    await ctx.db.patch(token._id, { lastUsedAt: now })
   },
 })
 
