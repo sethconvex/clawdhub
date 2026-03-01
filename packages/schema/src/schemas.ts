@@ -336,6 +336,8 @@ export const ClawdisSkillMetadataSchema = type({
   author: 'string?',
   links: SkillLinksSchema.optional(),
 })
+// Explicit interface because ArkType's [inferred] doesn't resolve all fields for TS.
+// The _ClawdisSkillMetadataCheck below will fail to compile if this drifts from the schema.
 export type ClawdisSkillMetadata = {
   always?: boolean
   skillKey?: string
@@ -353,3 +355,8 @@ export type ClawdisSkillMetadata = {
   author?: string
   links?: SkillLinks
 }
+type _ClawdisInferred = (typeof ClawdisSkillMetadataSchema)[inferred]
+type _AssertExactKeys<A, B> = [keyof A] extends [keyof B] ? [keyof B] extends [keyof A] ? true : never : never
+type _ClawdisKeysMatch = _AssertExactKeys<ClawdisSkillMetadata, _ClawdisInferred>
+// If this line errors, ClawdisSkillMetadata is out of sync with ClawdisSkillMetadataSchema
+const _clawdisKeysCheck: _ClawdisKeysMatch = true
