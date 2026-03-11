@@ -1845,7 +1845,7 @@ export const listPublicPageV2 = query({
     const dir = args.dir ?? (sort === 'name' ? 'asc' : 'desc')
     const { numItems, cursor: initialCursor } = normalizePublicListPagination(args.paginationOpts)
 
-    const useNonsuspiciousIndex = args.nonSuspiciousOnly && !args.highlightedOnly
+    const useNonsuspiciousIndex = !!args.nonSuspiciousOnly
 
     const runPaginate = (cursor: string | null) => {
       if (useNonsuspiciousIndex) {
@@ -1865,14 +1865,17 @@ export const listPublicPageV2 = query({
     }
 
     let result = await paginateWithStaleCursorRecovery(runPaginate, initialCursor)
-    let filteredPage = useNonsuspiciousIndex
-      ? result.page
-      : filterPublicSkillPage(result.page, args)
+    // When using the nonsuspicious index, isSuspicious is already filtered at the DB level,
+    // so only apply highlightedOnly in JS. Otherwise apply both filters.
+    const filterArgs = useNonsuspiciousIndex
+      ? { highlightedOnly: args.highlightedOnly }
+      : args
+    let filteredPage = filterPublicSkillPage(result.page, filterArgs)
 
-    // When highlightedOnly, skip empty filtered pages so clients don't bounce.
-    while (args.highlightedOnly && filteredPage.length === 0 && !result.isDone) {
+    // When post-filters are active, skip empty filtered pages so clients don't bounce.
+    while (filteredPage.length < result.page.length && filteredPage.length === 0 && !result.isDone) {
       result = await runPaginate(result.continueCursor)
-      filteredPage = filterPublicSkillPage(result.page, args)
+      filteredPage = filterPublicSkillPage(result.page, filterArgs)
     }
 
     const items = await buildPublicSkillEntries(ctx, filteredPage)
