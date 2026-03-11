@@ -274,15 +274,20 @@ export const lexicalFallbackSkills = internalQuery({
       }
     }
 
-    const recentSkills = await ctx.db
-      .query('skills')
-      .withIndex('by_active_updated', (q) => q.eq('softDeletedAt', undefined))
-      .order('desc')
-      .take(FALLBACK_SCAN_LIMIT)
+    const recentSkillsQuery = args.nonSuspiciousOnly
+      ? ctx.db
+          .query('skills')
+          .withIndex('by_nonsuspicious_updated', (q) =>
+            q.eq('softDeletedAt', undefined).eq('isSuspicious', false),
+          )
+      : ctx.db
+          .query('skills')
+          .withIndex('by_active_updated', (q) => q.eq('softDeletedAt', undefined))
+    const recentSkills = await recentSkillsQuery.order('desc').take(FALLBACK_SCAN_LIMIT)
 
     for (const skill of recentSkills) {
       if (seenSkillIds.has(skill._id)) continue
-      if (args.nonSuspiciousOnly && isSkillSuspicious(skill)) continue
+      if (!args.nonSuspiciousOnly && isSkillSuspicious(skill)) continue
       seenSkillIds.add(skill._id)
       candidateSkills.push(skill)
     }
