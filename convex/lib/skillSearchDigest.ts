@@ -77,6 +77,13 @@ export async function syncSkillSearchDigest(
   skillId: Id<'skills'>,
 ) {
   const skill = await ctx.db.get(skillId)
-  if (!skill) return
+  if (!skill) {
+    const existing = await ctx.db
+      .query('skillSearchDigest')
+      .withIndex('by_skill', (q) => q.eq('skillId', skillId))
+      .unique()
+    if (existing) await ctx.db.delete(existing._id)
+    return
+  }
   await upsertSkillSearchDigest(ctx, extractDigestFields(skill))
 }

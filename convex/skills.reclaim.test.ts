@@ -68,6 +68,13 @@ describe('skills reclaim ownership transfer', () => {
             },
           }
         }
+        if (table === 'skillSearchDigest') {
+          return {
+            withIndex: () => ({
+              unique: async () => null,
+            }),
+          }
+        }
         throw new Error(`unexpected table ${table}`)
       }),
       patch,
