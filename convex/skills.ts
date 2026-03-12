@@ -2344,27 +2344,14 @@ export const listPublicPageV2 = query({
 
     // Use the lightweight skillSearchDigest table (~800 bytes/row vs ~1.9KB)
     // to avoid Bytes Read Limit errors on the full skills table.
-    // When post-pagination filters are active, skip empty filtered pages so clients
-    // don't bounce between CanLoadMore/LoadingMore with no visible new rows.
-    let result = await paginateWithStaleCursorRecovery(
+    const result = await paginateWithStaleCursorRecovery(
       runPaginate,
       initialCursor,
     )
-    let filteredPage = filterPublicSkillPage(
+    const filteredPage = filterPublicSkillPage(
       result.page.map(digestToHydratableSkill),
       args,
     )
-    while (
-      (args.nonSuspiciousOnly || args.highlightedOnly) &&
-      filteredPage.length === 0 &&
-      !result.isDone
-    ) {
-      result = await runPaginate(result.continueCursor)
-      filteredPage = filterPublicSkillPage(
-        result.page.map(digestToHydratableSkill),
-        args,
-      )
-    }
 
     const items = await buildPublicSkillEntries(ctx, filteredPage)
     return { ...result, page: items }
