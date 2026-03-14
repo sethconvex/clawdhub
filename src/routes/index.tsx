@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
-import { convex } from '../convex/client'
+import { convexHttp } from '../convex/client'
 import { InstallSwitcher } from '../components/InstallSwitcher'
 import { SkillCard } from '../components/SkillCard'
 import { SkillStatsTripletLine } from '../components/SkillStats'
@@ -34,19 +34,21 @@ function SkillsHome() {
   const [popular, setPopular] = useState<SkillPageEntry[]>([])
 
   useEffect(() => {
-    convex
+    let cancelled = false
+    convexHttp
       .query(api.skills.listHighlightedPublic, { limit: 6 })
-      .then((r) => setHighlighted(r as SkillPageEntry[]))
+      .then((r) => { if (!cancelled) setHighlighted(r as SkillPageEntry[]) })
       .catch(() => {})
-    convex
+    convexHttp
       .query(api.skills.listPublicPageV2, {
         paginationOpts: { cursor: null, numItems: 12 },
         sort: 'downloads',
         dir: 'desc',
         nonSuspiciousOnly: true,
       })
-      .then((r) => setPopular((r as { page: SkillPageEntry[] }).page))
+      .then((r) => { if (!cancelled) setPopular((r as { page: SkillPageEntry[] }).page) })
       .catch(() => {})
+    return () => { cancelled = true }
   }, [])
 
   return (
