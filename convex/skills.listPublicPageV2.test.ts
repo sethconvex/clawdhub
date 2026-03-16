@@ -332,7 +332,7 @@ describe('skills.listPublicPageV2', () => {
     )
   })
 
-  it('falls back to db.get(latestVersionId) when latestVersionSummary is absent', async () => {
+  it('returns latestVersion as null when latestVersionSummary is absent', async () => {
     const oldRow = makeSkill('skills:old', 'old', 'users:1', 'skillVersions:1')
     // Simulate a pre-backfill digest row without latestVersionSummary
     delete (oldRow as Record<string, unknown>).latestVersionSummary
@@ -344,11 +344,6 @@ describe('skills.listPublicPageV2', () => {
       pageStatus: null,
       splitCursor: null,
     })
-    const getMock = vi.fn(async (id: string) => {
-      if (id.startsWith('users:')) return makeUser(id)
-      if (id.startsWith('skillVersions:')) return makeVersion(id)
-      return null
-    })
     const ctx = {
       db: {
         query: vi.fn(() => ({
@@ -356,7 +351,7 @@ describe('skills.listPublicPageV2', () => {
             order: vi.fn(() => ({ paginate: paginateMock })),
           })),
         })),
-        get: getMock,
+        get: vi.fn(),
       },
     }
 
@@ -370,8 +365,9 @@ describe('skills.listPublicPageV2', () => {
 
     expect(result.page).toHaveLength(1)
     expect(result.page[0]?.skill.slug).toBe('old')
-    // Should have fetched the version doc via db.get
-    expect(getMock).toHaveBeenCalledWith('skillVersions:1')
+    // No db.get fallback — latestVersion is null when summary is absent
+    expect(result.page[0]?.latestVersion).toBeNull()
+    expect(ctx.db.get).not.toHaveBeenCalled()
   })
 
   it('skips db.get for owner when digest has pre-resolved ownerHandle', async () => {
@@ -413,7 +409,7 @@ describe('skills.listPublicPageV2', () => {
     expect(getMock).not.toHaveBeenCalledWith('users:1')
   })
 
-  it('falls back to db.get for owner when digest lacks ownerHandle', async () => {
+  it('skips skill when digest lacks ownerHandle (pre-backfill row)', async () => {
     const skill = makeSkill('skills:old', 'old', 'users:1', 'skillVersions:1')
     // Simulate pre-backfill row without owner fields
     delete (skill as Record<string, unknown>).ownerHandle
@@ -428,11 +424,6 @@ describe('skills.listPublicPageV2', () => {
       pageStatus: null,
       splitCursor: null,
     })
-    const getMock = vi.fn(async (id: string) => {
-      if (id.startsWith('users:')) return makeUser(id)
-      if (id.startsWith('skillVersions:')) return makeVersion(id)
-      return null
-    })
     const ctx = {
       db: {
         query: vi.fn(() => ({
@@ -440,7 +431,7 @@ describe('skills.listPublicPageV2', () => {
             order: vi.fn(() => ({ paginate: paginateMock })),
           })),
         })),
-        get: getMock,
+        get: vi.fn(),
       },
     }
 
@@ -452,10 +443,9 @@ describe('skills.listPublicPageV2', () => {
       nonSuspiciousOnly: false,
     })
 
-    expect(result.page).toHaveLength(1)
-    expect(result.page[0]?.skill.slug).toBe('old')
-    // Should have fallen back to db.get for owner
-    expect(getMock).toHaveBeenCalledWith('users:1')
+    // No fallback to db.get — skill is excluded when owner fields are missing
+    expect(result.page).toHaveLength(0)
+    expect(ctx.db.get).not.toHaveBeenCalled()
   })
 
   it('does not swallow non-cursor paginate errors', async () => {
